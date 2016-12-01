@@ -32,10 +32,12 @@ import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
+import android.text.TextUtils;
 import android.view.View;
 
 import com.example.android.uamp.R;
 import com.example.android.uamp.utils.LogHelper;
+import com.example.android.uamp.utils.MediaIDHelper;
 
 import java.util.HashSet;
 import java.util.Iterator;
@@ -233,10 +235,10 @@ public class TvBrowseFragment extends BrowseSupportFragment {
     private void setupEventListeners() {
         setOnItemViewClickedListener(new OnItemViewClickedListener() {
             @Override
-            public void onItemClicked(Presenter.ViewHolder viewHolder, Object o,
+            public void onItemClicked(Presenter.ViewHolder viewHolder, Object clickedItem,
                                       RowPresenter.ViewHolder viewHolder2, Row row) {
-                if (o instanceof MediaBrowserCompat.MediaItem) {
-                    MediaItem item = (MediaItem) o;
+                if (clickedItem instanceof MediaBrowserCompat.MediaItem) {
+                    MediaItem item = (MediaItem) clickedItem;
                     if (item.isPlayable()) {
                         LogHelper.w(TAG, "Ignoring click on PLAYABLE MediaItem in" +
                                 "TvBrowseFragment. mediaId=", item.getMediaId());
@@ -248,11 +250,25 @@ public class TvBrowseFragment extends BrowseSupportFragment {
                             item.getDescription().getTitle());
                     startActivity(intent);
 
-                } else if (o instanceof MediaSessionCompat.QueueItem) {
-                    MediaSessionCompat.QueueItem item = (MediaSessionCompat.QueueItem) o;
+                } else if (clickedItem instanceof MediaSessionCompat.QueueItem) {
+                    MediaSessionCompat.QueueItem item = (MediaSessionCompat.QueueItem) clickedItem;
                     MediaControllerCompat mediaController = getActivity()
                             .getSupportMediaController();
-                    mediaController.getTransportControls().skipToQueueItem(item.getQueueId());
+
+                    // if clicked media item is not already playing, call skipToQueueItem to play it
+                    if (mediaController != null && mediaController.getMetadata() != null) {
+                        String currentPlaying = mediaController.getMetadata()
+                                .getDescription().getMediaId();
+                        String itemMusicId = MediaIDHelper
+                                .extractMusicIDFromMediaID(item.getDescription().getMediaId());
+                        if (!TextUtils.equals(currentPlaying, itemMusicId)) {
+                            mediaController.getTransportControls()
+                                    .skipToQueueItem(item.getQueueId());
+                        }
+                    } else {
+                        mediaController.getTransportControls().skipToQueueItem(item.getQueueId());
+                    }
+
                     Intent intent = new Intent(getActivity(), TvPlaybackActivity.class);
                     startActivity(intent);
                 }
